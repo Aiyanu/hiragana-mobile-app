@@ -3,9 +3,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type {
+    Character,
     CharacterStat,
     CharacterStats,
-    HiraganaCharacter,
+    CharacterType,
     OverallProgress,
     ProgressContextType,
     SessionHistory,
@@ -89,31 +90,28 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         await AsyncStorage.setItem("sessionHistory", JSON.stringify(sessionHistory))
     }
 
-    const recordAnswer = async (
-        character: HiraganaCharacter,
-        isCorrect: boolean,
-        responseTime?: number,
-    ): Promise<void> => {
+    const recordAnswer = async (character: Character, isCorrect: boolean, responseTime?: number): Promise<void> => {
         const now = getTodayDateString()
 
         const updatedOverallProgress = await updateDailyStreak()
 
         const updatedCharacterStats: CharacterStats = {
             ...characterStats,
-            [character.character]: {
-                characterId: character.character,
+            [character.id]: {
+                characterId: character.id,
                 character: character.character,
                 romaji: character.romaji,
+                type: character.type,
                 correctAnswers: isCorrect
-                    ? (characterStats[character.character]?.correctAnswers || 0) + 1
-                    : characterStats[character.character]?.correctAnswers || 0,
-                totalAttempts: (characterStats[character.character]?.totalAttempts || 0) + 1,
-                responseTimes: [...(characterStats[character.character]?.responseTimes || []), responseTime || 0],
+                    ? (characterStats[character.id]?.correctAnswers || 0) + 1
+                    : characterStats[character.id]?.correctAnswers || 0,
+                totalAttempts: (characterStats[character.id]?.totalAttempts || 0) + 1,
+                responseTimes: [...(characterStats[character.id]?.responseTimes || []), responseTime || 0],
                 accuracy: Math.round(
                     ((isCorrect
-                        ? (characterStats[character.character]?.correctAnswers || 0) + 1
-                        : characterStats[character.character]?.correctAnswers || 0) /
-                        ((characterStats[character.character]?.totalAttempts || 0) + 1)) *
+                        ? (characterStats[character.id]?.correctAnswers || 0) + 1
+                        : characterStats[character.id]?.correctAnswers || 0) /
+                        ((characterStats[character.id]?.totalAttempts || 0) + 1)) *
                     100,
                 ),
             },
@@ -165,7 +163,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         } else if (currentStreak < 30) {
             return "Incredible dedication!"
         } else if (currentStreak < 100) {
-            return "You're a Hiragana master!"
+            return "You're a Japanese master!"
         } else {
             return "Legendary streak!"
         }
@@ -191,6 +189,43 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             .filter((stat: CharacterStat) => stat?.totalAttempts >= 3 && stat?.accuracy >= 80)
             .sort((a: CharacterStat, b: CharacterStat) => (b?.accuracy || 0) - (a?.accuracy || 0))
             .slice(0, 10)
+    }
+
+    const getCharacterStatsByType = (type: CharacterType): CharacterStat[] => {
+        if (!characterStats || Object.keys(characterStats).length === 0) {
+            return []
+        }
+
+        return Object.values(characterStats).filter((stat: CharacterStat) => stat?.type === type)
+    }
+
+    const getProgressByType = (): Record<CharacterType, { total: number; accuracy: number; learned: number }> => {
+        const typeProgress: Record<CharacterType, { total: number; accuracy: number; learned: number }> = {
+            hiragana: { total: 0, accuracy: 0, learned: 0 },
+            katakana: { total: 0, accuracy: 0, learned: 0 },
+            kanji: { total: 0, accuracy: 0, learned: 0 },
+        }
+
+        if (!characterStats || Object.keys(characterStats).length === 0) {
+            return typeProgress
+        }
+
+        Object.values(characterStats).forEach((stat: CharacterStat) => {
+            if (stat?.type && typeProgress[stat.type]) {
+                typeProgress[stat.type].total += stat.totalAttempts || 0
+                typeProgress[stat.type].learned += 1
+
+                // Calculate weighted accuracy
+                const currentAccuracy = typeProgress[stat.type].accuracy
+                const currentTotal = typeProgress[stat.type].total - (stat.totalAttempts || 0)
+                const newAccuracy =
+                    (currentAccuracy * currentTotal + (stat.accuracy || 0) * (stat.totalAttempts || 0)) /
+                    typeProgress[stat.type].total
+                typeProgress[stat.type].accuracy = Math.round(newAccuracy)
+            }
+        })
+
+        return typeProgress
     }
 
     const resetProgress = async (): Promise<void> => {
@@ -292,6 +327,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
                 getStreakMessage,
                 getProblematicCharacters,
                 getTopPerformingCharacters,
+                getCharacterStatsByType,
+                getProgressByType,
                 sessionHistory,
                 resetProgress,
                 isLoading,

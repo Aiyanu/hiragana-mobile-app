@@ -38,7 +38,7 @@ export default function StreakDisplay({ variant = "full" }: StreakDisplayProps) 
 
             <View style={styles.streakDisplay}>
                 <View style={styles.currentStreakContainer}>
-                    <Text style={styles.streakNumber}>{currentStreak}</Text>
+                    <Text style={styles.streakNumber}>{currentStreak}⚡</Text>
                     <Text style={styles.streakLabel}>Current Streak</Text>
                     <Text style={styles.streakMessage}>{streakMessage}</Text>
                 </View>

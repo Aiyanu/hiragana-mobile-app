@@ -1,18 +1,27 @@
 import type * as Notifications from "expo-notifications";
 
-export interface HiraganaCharacter {
+export type CharacterType = "hiragana" | "katakana" | "kanji";
+
+export interface Character {
   id: string;
   character: string;
   romaji: string;
   pronunciation: string;
   meaning?: string;
   category: "basic" | "dakuten" | "handakuten" | "combination";
+  type: CharacterType;
+}
+
+// Keep HiraganaCharacter for backward compatibility
+export interface HiraganaCharacter extends Character {
+  type: "hiragana";
 }
 
 export interface CharacterStat {
   characterId: string;
   character: string;
   romaji: string;
+  type: CharacterType;
   correctAnswers: number;
   totalAttempts: number;
   responseTimes: number[];
@@ -100,7 +109,7 @@ export interface ProgressContextType {
   hasStudiedToday: boolean;
   setHasStudiedToday: (studied: boolean) => void;
   recordAnswer: (
-    character: HiraganaCharacter,
+    character: Character,
     isCorrect: boolean,
     responseTime?: number
   ) => Promise<void>;
@@ -111,6 +120,11 @@ export interface ProgressContextType {
   getStreakMessage: () => string;
   getProblematicCharacters: () => CharacterStat[];
   getTopPerformingCharacters: () => CharacterStat[];
+  getCharacterStatsByType: (type: CharacterType) => CharacterStat[];
+  getProgressByType: () => Record<
+    CharacterType,
+    { total: number; accuracy: number; learned: number }
+  >;
   sessionHistory: SessionHistory[];
   resetProgress: () => Promise<void>;
   isLoading: boolean;
@@ -142,7 +156,7 @@ export type QuestionType =
 export interface Question {
   id: string;
   type: QuestionType;
-  character: HiraganaCharacter;
+  character: Character;
   options: string[];
   correctAnswer: string;
   questionText: string;
@@ -156,23 +170,24 @@ export type CharacterMasteryLevel =
   | "mastered";
 
 export interface CharacterDetailModalProps {
-  character: HiraganaCharacter | null;
+  character: Character | null;
   isVisible: boolean;
   onClose: () => void;
   characterStat?: CharacterStat;
 }
 
 export interface CharacterGridItemProps {
-  character: HiraganaCharacter;
+  character: Character;
   masteryLevel: CharacterMasteryLevel;
-  onPress: (character: HiraganaCharacter) => void;
+  onPress: (character: Character) => void;
 }
 
 export interface LearningScreenState {
-  selectedCharacter: HiraganaCharacter | null;
+  selectedCharacter: Character | null;
   modalVisible: boolean;
   searchQuery: string;
   filterCategory: "all" | "basic" | "dakuten" | "handakuten" | "combination";
+  selectedCharacterTypes: CharacterType[];
 }
 
 export interface CharacterPronunciationResult {

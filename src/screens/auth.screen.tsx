@@ -22,6 +22,7 @@ const AuthScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
     container: {
+        paddingTop: 20,
         flex: 1,
     },
 })

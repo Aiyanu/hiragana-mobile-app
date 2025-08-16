@@ -1,6 +1,10 @@
+"use client"
+
+import { useState } from "react"
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import StreakDisplay from "../components/StreakDisplay"
 import { useProgress } from "../contexts/progress.context"
+import type { CharacterType } from "../types"
 
 export default function ProgressScreen() {
     const {
@@ -9,13 +13,29 @@ export default function ProgressScreen() {
         sessionHistory,
         getProblematicCharacters,
         getTopPerformingCharacters,
+        getCharacterStatsByType,
+        getProgressByType,
         resetProgress,
         isLoading,
     } = useProgress()
 
+    const [sectionsExpanded, setSectionsExpanded] = useState({
+        improvements: false,
+        topPerforming: false,
+        recentSessions: false,
+    })
+
+    const toggleSection = (section: keyof typeof sectionsExpanded) => {
+        setSectionsExpanded((prev) => ({
+            ...prev,
+            [section]: !prev[section],
+        }))
+    }
+
     const problematicCharacters = getProblematicCharacters?.() || []
     const topCharacters = getTopPerformingCharacters?.() || []
     const recentSessions = sessionHistory?.slice(0, 5) || []
+    const progressByType = getProgressByType?.() || {}
 
     const formatStudyTime = (minutes: number): string => {
         if (!minutes || minutes < 60) return `${minutes || 0}m`
@@ -33,6 +53,19 @@ export default function ProgressScreen() {
             hour: "2-digit",
             minute: "2-digit",
         })
+    }
+
+    const getCharacterTypeStyle = (type: CharacterType) => {
+        switch (type) {
+            case "hiragana":
+                return { backgroundColor: "#dbeafe", color: "#1e40af", label: "Hiragana" }
+            case "katakana":
+                return { backgroundColor: "#fef3c7", color: "#92400e", label: "Katakana" }
+            case "kanji":
+                return { backgroundColor: "#fce7f3", color: "#be185d", label: "Kanji" }
+            default:
+                return { backgroundColor: "#f3f4f6", color: "#6b7280", label: "Unknown" }
+        }
     }
 
     if (isLoading) {
@@ -101,74 +134,143 @@ export default function ProgressScreen() {
                     )}
                 </View>
 
-                {/* Areas to Improve */}
+                {/* Progress by Character Type */}
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Areas to Improve</Text>
-                    {problematicCharacters.length > 0 ? (
-                        <View style={styles.characterList}>
-                            {problematicCharacters.map((stat) => (
-                                <View key={stat.characterId} style={styles.characterItem}>
-                                    <View style={styles.characterInfo}>
-                                        <Text style={styles.characterText}>{stat.character}</Text>
-                                        <Text style={styles.romajiText}>{stat.romaji}</Text>
+                    <Text style={styles.cardTitle}>Progress by Character Type</Text>
+                    <View style={styles.typeProgressContainer}>
+                        {(Object.keys(progressByType) as CharacterType[]).map((type) => {
+                            const typeData = progressByType[type]
+                            const typeStyle = getCharacterTypeStyle(type)
+
+                            if (typeData.learned === 0) return null
+
+                            return (
+                                <View key={type} style={styles.typeProgressItem}>
+                                    <View style={styles.typeHeader}>
+                                        <View style={[styles.typeBadge, { backgroundColor: typeStyle.backgroundColor }]}>
+                                            <Text style={[styles.typeBadgeText, { color: typeStyle.color }]}>{typeStyle.label}</Text>
+                                        </View>
+                                        <Text style={styles.typeAccuracy}>{typeData.accuracy}%</Text>
                                     </View>
-                                    <View style={styles.characterStats}>
-                                        <Text style={[styles.accuracyText, { color: "#dc2626" }]}>{stat.accuracy}%</Text>
-                                        <Text style={styles.attemptsText}>{stat.totalAttempts} attempts</Text>
+                                    <View style={styles.typeStats}>
+                                        <Text style={styles.typeStatsText}>
+                                            {typeData.learned} characters • {typeData.total} questions
+                                        </Text>
                                     </View>
                                 </View>
-                            ))}
-                        </View>
-                    ) : (
-                        <Text style={styles.placeholderText}>
-                            {(overallProgress?.totalQuestions || 0) > 0
-                                ? "Great job! No problem areas identified yet."
-                                : "Complete more questions to see areas for improvement."}
-                        </Text>
+                            )
+                        })}
+                    </View>
+                </View>
+
+                {/* Areas to Improve */}
+                <View style={styles.card}>
+                    <TouchableOpacity style={styles.collapsibleHeader} onPress={() => toggleSection("improvements")}>
+                        <Text style={styles.cardTitle}>Areas to Improve</Text>
+                        <Text style={styles.toggleIcon}>{sectionsExpanded.improvements ? "▼" : "▶"}</Text>
+                    </TouchableOpacity>
+
+                    {sectionsExpanded.improvements && (
+                        <ScrollView style={styles.collapsibleContent} nestedScrollEnabled>
+                            {problematicCharacters.length > 0 ? (
+                                <View style={styles.characterList}>
+                                    {problematicCharacters.map((stat) => {
+                                        const typeStyle = getCharacterTypeStyle(stat.type)
+                                        return (
+                                            <View key={stat.characterId} style={styles.characterItem}>
+                                                <View style={styles.characterInfo}>
+                                                    <Text style={styles.characterText}>{stat.character}</Text>
+                                                    <Text style={styles.romajiText}>{stat.romaji}</Text>
+                                                    <View style={[styles.characterTypeBadge, { backgroundColor: typeStyle.backgroundColor }]}>
+                                                        <Text style={[styles.characterTypeBadgeText, { color: typeStyle.color }]}>
+                                                            {(stat.type?.charAt(0) || "U").toUpperCase()}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={styles.characterStats}>
+                                                    <Text style={[styles.accuracyText, { color: "#dc2626" }]}>{stat.accuracy}%</Text>
+                                                    <Text style={styles.attemptsText}>{stat.totalAttempts} attempts</Text>
+                                                </View>
+                                            </View>
+                                        )
+                                    })}
+                                </View>
+                            ) : (
+                                <Text style={styles.placeholderText}>
+                                    {(overallProgress?.totalQuestions || 0) > 0
+                                        ? "Great job! No problem areas identified yet."
+                                        : "Complete more questions to see areas for improvement."}
+                                </Text>
+                            )}
+                        </ScrollView>
                     )}
                 </View>
 
                 {/* Top Performing Characters */}
                 {topCharacters.length > 0 && (
                     <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Top Performing Characters</Text>
-                        <View style={styles.characterList}>
-                            {topCharacters.slice(0, 5).map((stat) => (
-                                <View key={stat.characterId} style={styles.characterItem}>
-                                    <View style={styles.characterInfo}>
-                                        <Text style={styles.characterText}>{stat.character}</Text>
-                                        <Text style={styles.romajiText}>{stat.romaji}</Text>
-                                    </View>
-                                    <View style={styles.characterStats}>
-                                        <Text style={[styles.accuracyText, { color: "#16a34a" }]}>{stat.accuracy}%</Text>
-                                        <Text style={styles.attemptsText}>{stat.totalAttempts} attempts</Text>
-                                    </View>
+                        <TouchableOpacity style={styles.collapsibleHeader} onPress={() => toggleSection("topPerforming")}>
+                            <Text style={styles.cardTitle}>Top Performing Characters</Text>
+                            <Text style={styles.toggleIcon}>{sectionsExpanded.topPerforming ? "▼" : "▶"}</Text>
+                        </TouchableOpacity>
+
+                        {sectionsExpanded.topPerforming && (
+                            <ScrollView style={styles.collapsibleContent} nestedScrollEnabled>
+                                <View style={styles.characterList}>
+                                    {topCharacters.slice(0, 5).map((stat) => {
+                                        const typeStyle = getCharacterTypeStyle(stat.type)
+                                        return (
+                                            <View key={stat.characterId} style={styles.characterItem}>
+                                                <View style={styles.characterInfo}>
+                                                    <Text style={styles.characterText}>{stat.character}</Text>
+                                                    <Text style={styles.romajiText}>{stat.romaji}</Text>
+                                                    <View style={[styles.characterTypeBadge, { backgroundColor: typeStyle.backgroundColor }]}>
+                                                        <Text style={[styles.characterTypeBadgeText, { color: typeStyle.color }]}>
+                                                            {(stat.type?.charAt(0) || "U").toUpperCase()}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={styles.characterStats}>
+                                                    <Text style={[styles.accuracyText, { color: "#16a34a" }]}>{stat.accuracy}%</Text>
+                                                    <Text style={styles.attemptsText}>{stat.totalAttempts} attempts</Text>
+                                                </View>
+                                            </View>
+                                        )
+                                    })}
                                 </View>
-                            ))}
-                        </View>
+                            </ScrollView>
+                        )}
                     </View>
                 )}
 
                 {/* Recent Sessions */}
                 {recentSessions.length > 0 && (
                     <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Recent Sessions</Text>
-                        <View style={styles.sessionList}>
-                            {recentSessions.map((session) => (
-                                <View key={session.id} style={styles.sessionItem}>
-                                    <View style={styles.sessionInfo}>
-                                        <Text style={styles.sessionDate}>{formatDate(session.date)}</Text>
-                                        <Text style={styles.sessionDetails}>
-                                            {session.questionsAnswered} questions • {session.accuracy}% accuracy
-                                        </Text>
-                                    </View>
-                                    <View style={styles.sessionStats}>
-                                        <Text style={styles.sessionDuration}>{session.duration}m</Text>
-                                        {(session.streak || 0) > 0 && <Text style={styles.sessionStreak}>🔥 {session.streak}</Text>}
-                                    </View>
+                        <TouchableOpacity style={styles.collapsibleHeader} onPress={() => toggleSection("recentSessions")}>
+                            <Text style={styles.cardTitle}>Recent Sessions</Text>
+                            <Text style={styles.toggleIcon}>{sectionsExpanded.recentSessions ? "▼" : "▶"}</Text>
+                        </TouchableOpacity>
+
+                        {sectionsExpanded.recentSessions && (
+                            <ScrollView style={styles.collapsibleContent} nestedScrollEnabled>
+                                <View style={styles.sessionList}>
+                                    {recentSessions.map((session) => (
+                                        <View key={session.id} style={styles.sessionItem}>
+                                            <View style={styles.sessionInfo}>
+                                                <Text style={styles.sessionDate}>{formatDate(session.date)}</Text>
+                                                <Text style={styles.sessionDetails}>
+                                                    {session.questionsAnswered} questions • {session.accuracy}% accuracy
+                                                </Text>
+                                            </View>
+                                            <View style={styles.sessionStats}>
+                                                <Text style={styles.sessionDuration}>{session.duration}m</Text>
+                                                {(session.streak || 0) > 0 && <Text style={styles.sessionStreak}>🔥 {session.streak}</Text>}
+                                            </View>
+                                        </View>
+                                    ))}
                                 </View>
-                            ))}
-                        </View>
+                            </ScrollView>
+                        )}
                     </View>
                 )}
 
@@ -186,6 +288,7 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        paddingTop: 20,
         backgroundColor: "#f8fafc",
     },
     content: {
@@ -360,5 +463,68 @@ const styles = StyleSheet.create({
         color: "#6b7280",
         textAlign: "center",
         lineHeight: 24,
+    },
+    typeProgressContainer: {
+        gap: 12,
+    },
+    typeProgressItem: {
+        padding: 16,
+        backgroundColor: "#f9fafb",
+        borderRadius: 12,
+    },
+    typeHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    typeBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    typeBadgeText: {
+        fontSize: 12,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
+    typeAccuracy: {
+        fontSize: 18,
+        fontWeight: "bold",
+        color: "#1f2937",
+    },
+    typeStats: {
+        marginTop: 4,
+    },
+    typeStatsText: {
+        fontSize: 12,
+        color: "#6b7280",
+    },
+    characterTypeBadge: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    characterTypeBadgeText: {
+        fontSize: 10,
+        fontWeight: "bold",
+    },
+    collapsibleHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingBottom: 8,
+    },
+    toggleIcon: {
+        fontSize: 16,
+        color: "#6b7280",
+        fontWeight: "600",
+    },
+    collapsibleContent: {
+        maxHeight: 300,
+        marginTop: 8,
     },
 })

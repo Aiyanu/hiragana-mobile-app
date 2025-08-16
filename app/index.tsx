@@ -1,7 +1,9 @@
 "use client"
 
+import { Ionicons } from "@expo/vector-icons"
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { StatusBar } from "expo-status-bar"
+import React from "react"
 import { ActivityIndicator, StyleSheet, View } from "react-native"
 
 import LearningScreen from "@/src/screens/learning.screen"
@@ -31,19 +33,22 @@ const AppContent = () => {
     }
 
     return (
-        <View style={styles.container}>
+        <>
             <StatusBar style="auto" />
             <Tab.Navigator
                 screenOptions={{
                     tabBarActiveTintColor: "#6366f1",
                     tabBarInactiveTintColor: "#6b7280",
-                    headerStyle: {
-                        backgroundColor: "#f8fafc",
-                    },
-                    headerTitleStyle: {
-                        fontWeight: "bold",
-                        color: "#1f2937",
-                    },
+                    headerShown: false,
+                    // headerStyle: {
+                    //     backgroundColor: "#f8fafc",
+                    // },
+                    // headerTitleStyle: {
+                    //     fontWeight: "bold",
+                    //     color: "#1f2937",
+                    // },
+                    // use tabBarStyle for bottom tab bar appearance
+                    tabBarStyle: { backgroundColor: "#ffffff" },
                 }}
             >
                 <Tab.Screen
@@ -52,6 +57,7 @@ const AppContent = () => {
                     options={{
                         tabBarLabel: "Practice",
                         headerTitle: "Hiragana Practice",
+                        tabBarIcon: ({ color, size }) => <Ionicons name="flash" size={size} color={color} />
                     }}
                 />
                 <Tab.Screen
@@ -60,6 +66,7 @@ const AppContent = () => {
                     options={{
                         tabBarLabel: "Learn",
                         headerTitle: "Learn Characters",
+                        tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} />,
                     }}
                 />
                 <Tab.Screen
@@ -67,7 +74,7 @@ const AppContent = () => {
                     component={ProgressScreen}
                     options={{
                         tabBarLabel: "Progress",
-                        headerTitle: "Your Progress",
+                        headerTitle: "Your Progress", tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color} />
                     }}
                 />
                 <Tab.Screen
@@ -76,22 +83,31 @@ const AppContent = () => {
                     options={{
                         tabBarLabel: "Settings",
                         headerTitle: "Settings",
+                        tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} />
                     }}
                 />
             </Tab.Navigator>
-        </View>
+        </>
     )
 }
 
-export default function Page() {
+/**
+ * Page accepts a possible `style` prop from the router — we apply it to a real View
+ * so it won't be forwarded to any Fragments (which triggers the warning).
+ *
+ * Note: do NOT add another NavigationContainer here when using expo-router.
+ */
+export default function Page({ style }: { style?: any }) {
     return (
-        <AuthProvider>
-            <NotificationProvider>
-                <ProgressProvider>
-                    <AppContent />
-                </ProgressProvider>
-            </NotificationProvider>
-        </AuthProvider>
+        <View style={[styles.container, style]}>
+            <AuthProvider>
+                <NotificationProvider>
+                    <ProgressProvider>
+                        <AppContent />
+                    </ProgressProvider>
+                </NotificationProvider>
+            </AuthProvider>
+        </View>
     )
 }
 

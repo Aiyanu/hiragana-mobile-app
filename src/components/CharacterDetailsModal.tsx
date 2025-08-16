@@ -8,15 +8,15 @@ import {
     PanGestureHandler,
     type PanGestureHandlerGestureEvent,
 } from "react-native-gesture-handler"
-import type { HiraganaCharacter } from "../data/hiragana.data"
-import type { CharacterStat } from "../types"
+import type { Character } from "../data/hiragana.data"
+import type { CharacterStat, CharacterType } from "../types"
 import VoiceRecorder from "./VoiceRecorder"
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window")
 const MODAL_HEIGHT = SCREEN_HEIGHT * 0.7
 
 interface CharacterDetailModalProps {
-    character: HiraganaCharacter | null
+    character: Character | null
     isVisible: boolean
     onClose: () => void
     characterStat?: CharacterStat
@@ -24,13 +24,13 @@ interface CharacterDetailModalProps {
 
 export default function CharacterDetailModal({
     character,
-    isVisible = false,
+    isVisible,
     onClose,
     characterStat,
 }: CharacterDetailModalProps) {
     const [translateY] = useState(new Animated.Value(MODAL_HEIGHT))
     const [isPlaying, setIsPlaying] = useState(false)
-    const [showVoiceRecorder, setShowVoiceRecorder] = useState(false)
+    const [voiceRecorderRef, setVoiceRecorderRef] = useState<any>(null)
 
     useEffect(() => {
         if (isVisible) {
@@ -56,7 +56,6 @@ export default function CharacterDetailModal({
             useNativeDriver: true,
         }).start(() => {
             onClose()
-            setShowVoiceRecorder(false)
         })
     }
 
@@ -101,19 +100,30 @@ export default function CharacterDetailModal({
     const handleVoiceResult = (isCorrect: boolean, confidence: number) => {
         // Handle voice recognition result
         console.log("Voice result:", { isCorrect, confidence })
-        setShowVoiceRecorder(false)
     }
 
-    const formatLastAttempted = (date: string | null) => {
-        if (!date) return "Never"
-        const dateObj = new Date(date)
-        return dateObj.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-        })
+    const startVoiceRecording = () => {
+        if (voiceRecorderRef) {
+            voiceRecorderRef.startRecording()
+        }
+    }
+
+    const getCharacterTypeStyle = (type: CharacterType) => {
+        switch (type) {
+            case "hiragana":
+                return { backgroundColor: "#dbeafe", color: "#1e40af", label: "Hiragana" }
+            case "katakana":
+                return { backgroundColor: "#fef3c7", color: "#92400e", label: "Katakana" }
+            case "kanji":
+                return { backgroundColor: "#fce7f3", color: "#be185d", label: "Kanji" }
+            default:
+                return { backgroundColor: "#f3f4f6", color: "#6b7280", label: "Unknown" }
+        }
     }
 
     if (!character) return null
+
+    const typeStyle = getCharacterTypeStyle(character.type)
 
     return (
         <Modal visible={isVisible} transparent animationType="none" onRequestClose={handleClose}>
@@ -124,12 +134,21 @@ export default function CharacterDetailModal({
                     <Animated.View style={[styles.modal, { transform: [{ translateY }] }]}>
                         <View style={styles.handle} />
 
-                        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                        <ScrollView
+                            style={styles.content}
+                            contentContainerStyle={styles.contentContainer}
+                            showsVerticalScrollIndicator={false}
+                        >
                             <View style={styles.header}>
+                                <View style={[styles.typeBadge, { backgroundColor: typeStyle.backgroundColor }]}>
+                                    <Text style={[styles.typeBadgeText, { color: typeStyle.color }]}>{typeStyle.label}</Text>
+                                </View>
+
                                 <Text style={styles.characterDisplay}>{character.character}</Text>
                                 <View style={styles.pronunciationInfo}>
                                     <Text style={styles.romaji}>{character.romaji}</Text>
                                     <Text style={styles.pronunciation}>/{character.pronunciation}/</Text>
+                                    {character.meaning && <Text style={styles.meaning}>"{character.meaning}"</Text>}
                                 </View>
                             </View>
 
@@ -142,22 +161,20 @@ export default function CharacterDetailModal({
                                     <Text style={styles.audioButtonText}>{isPlaying ? "Playing..." : "🔊 Listen"}</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={[styles.audioButton, styles.micButton]}
-                                    onPress={() => setShowVoiceRecorder(!showVoiceRecorder)}
-                                >
+                                <TouchableOpacity style={[styles.audioButton, styles.micButton]} onPress={startVoiceRecording}>
                                     <Text style={styles.audioButtonText}>🎤 Practice</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            {showVoiceRecorder && (
+                            <View style={styles.voiceRecorderContainer}>
                                 <VoiceRecorder
+                                    ref={setVoiceRecorderRef}
                                     expectedPronunciation={character.pronunciation}
                                     romaji={character.romaji}
                                     character={character.character}
                                     onResult={handleVoiceResult}
                                 />
-                            )}
+                            </View>
 
                             <View style={styles.statsSection}>
                                 <Text style={styles.sectionTitle}>Your Progress</Text>
@@ -205,6 +222,10 @@ export default function CharacterDetailModal({
                             <View style={styles.infoSection}>
                                 <Text style={styles.sectionTitle}>Character Info</Text>
                                 <View style={styles.infoItem}>
+                                    <Text style={styles.infoLabel}>Type:</Text>
+                                    <Text style={styles.infoValue}>{typeStyle.label}</Text>
+                                </View>
+                                <View style={styles.infoItem}>
                                     <Text style={styles.infoLabel}>Character:</Text>
                                     <Text style={styles.infoValue}>{character.character}</Text>
                                 </View>
@@ -216,6 +237,12 @@ export default function CharacterDetailModal({
                                     <Text style={styles.infoLabel}>Pronunciation:</Text>
                                     <Text style={styles.infoValue}>/{character.pronunciation}/</Text>
                                 </View>
+                                {character.meaning && (
+                                    <View style={styles.infoItem}>
+                                        <Text style={styles.infoLabel}>Meaning:</Text>
+                                        <Text style={styles.infoValue}>"{character.meaning}"</Text>
+                                    </View>
+                                )}
                             </View>
                         </ScrollView>
                     </Animated.View>
@@ -261,9 +288,24 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 24,
     },
+    contentContainer: {
+        paddingBottom: 40, // Extra padding at bottom to prevent cutoff
+    },
     header: {
         alignItems: "center",
         marginBottom: 24,
+    },
+    typeBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginBottom: 12,
+    },
+    typeBadgeText: {
+        fontSize: 12,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
     },
     characterDisplay: {
         fontSize: 80,
@@ -283,6 +325,13 @@ const styles = StyleSheet.create({
     pronunciation: {
         fontSize: 18,
         color: "#6b7280",
+        fontStyle: "italic",
+    },
+    meaning: {
+        fontSize: 16,
+        color: "#059669",
+        fontWeight: "500",
+        marginTop: 4,
         fontStyle: "italic",
     },
     audioControls: {
@@ -378,5 +427,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "500",
         color: "#374151",
+    },
+    voiceRecorderContainer: {
+        marginBottom: 16,
     },
 })
